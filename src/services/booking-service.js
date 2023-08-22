@@ -1,18 +1,14 @@
 const axios=require('axios')
-const {ServerConfig}=require('../config')
+const {ServerConfig,RabbitMQ}=require('../config')
 const AppError=require('../utils/error/app-error')
 const {StatusCodes}=require('http-status-codes')
-
 const {BookingRepository}=require('../repositories')
-
 const {Enums}=require('../utils/common')
-
 const {BOOKED,CANCELLED}=Enums.BOOKING_STATUS;
-
-const bookingRepository=new BookingRepository();
-
 const db=require('../models')
 const serverConfig = require('../config/server-config')
+
+const bookingRepository=new BookingRepository();
 
 async function createBooking(data){
     const transaction=await db.sequelize.transaction();
@@ -71,9 +67,12 @@ async function makePayment(data){
         }
 
         await bookingRepository.update(data.bookingId,{status:BOOKED},transaction);
-
         await transaction.commit();
-
+        RabbitMQ.addMessageRB({
+            recepientEmail: 'rajanikants916@gmail.com',
+            subject: 'Flight Booked Successfully',
+            text: `Booking successfully done for the booking ${data.bookingId}`
+        });
         
     } catch (error) {
         await transaction.rollback();
